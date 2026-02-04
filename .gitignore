@@ -100,3 +100,5 @@ plugins
 .idea/
 
 undefinedelectron-log-preload.js
+.vscode/launch.json
+.github/copilot-instructions.md
