@@ -1,24 +1,10 @@
 .modal--duplicate-music-container {
-  position: relative;
   width: 640px;
   max-width: 92vw;
   max-height: 80vh;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-
-  // toast 钉在去重窗口内部右上角，而不是最外层窗口
-  .Toastify__toast-container--top-right {
-    position: absolute;
-    top: 3.5rem;
-    right: 0.75rem;
-    width: 360px;
-  }
-
-  .Toastify__toast {
-    font-size: 0.95rem;
-    min-height: 56px;
-  }
 
   .toolbar {
     display: flex;
