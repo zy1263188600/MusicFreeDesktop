@@ -1,8 +1,10 @@
 import localMusicListStore from "./store";
 import { getUserPreferenceIDB } from "@/renderer/utils/user-perference";
 import * as Comlink from "comlink";
+import PQueue from "p-queue";
 import musicSheetDB from "../db/music-sheet-db";
 import { getGlobalContext } from "@/shared/global-context/renderer";
+import { fsUtil } from "@shared/utils/renderer";
 
 type ProxyMarkedFunction<T extends (...args: any) => void> = T &
     Comlink.ProxyMarked;
@@ -12,6 +14,7 @@ type IMusicItemWithLocalPath = IMusic.IMusicItem & { $$localPath: string };
 interface ILocalFileWatcherWorker {
     setupWatcher: (initPaths?: string[]) => Promise<void>;
     changeWatchPath: (addPaths?: string[], rmPaths?: string[]) => Promise<void>;
+    rescanDirs: (dirs: string[]) => Promise<IMusicItemWithLocalPath[]>;
     onAdd: (
         cb: ProxyMarkedFunction<
             (musicItems: Array<IMusicItemWithLocalPath>) => Promise<void>
@@ -31,6 +34,22 @@ function isSubDir(parent: string, target: string) {
     );
 }
 
+async function partitionExisting(
+    items: IMusicItemWithLocalPath[],
+): Promise<{ validMusic: IMusicItemWithLocalPath[]; staleKeys: Array<[string, string]> }> {
+    const queue = new PQueue({ concurrency: 20 });
+    const flags = await Promise.all(
+        items.map((it) => queue.add(() => fsUtil.isFile(it.$$localPath))),
+    );
+    const validMusic: IMusicItemWithLocalPath[] = [];
+    const staleKeys: Array<[string, string]> = [];
+    items.forEach((it, i) => {
+        if (flags[i]) validMusic.push(it);
+        else staleKeys.push([it.platform, it.id]);
+    });
+    return { validMusic, staleKeys };
+}
+
 async function setupLocalMusic() {
     try {
         const localWatchDir =
@@ -47,7 +66,13 @@ async function setupLocalMusic() {
 
         const allMusic = await musicSheetDB.localMusicStore.toArray();
 
-        localMusicListStore.setValue(allMusic);
+        // 对账：软件关闭期间删掉的歌，watcher 收不到 unlink 事件，DB 里会残留幽灵条目
+        const { validMusic, staleKeys } = await partitionExisting(allMusic);
+        if (staleKeys.length) {
+            await musicSheetDB.localMusicStore.bulkDelete(staleKeys as any);
+        }
+
+        localMusicListStore.setValue(validMusic);
         localFileWatcherWorker.onAdd(
             Comlink.proxy(async (musicItems: IMusicItemWithLocalPath[]) => {
                 await musicSheetDB.transaction(
@@ -127,6 +152,30 @@ async function changeWatchPath(logs: Map<string, "add" | "delete">) {
     localFileWatcherWorker.changeWatchPath(tobeAddedPaths, tobeDeletedPaths);
 }
 
+// 手动重扫指定目录：补新增、清已删，返回统计供 UI 提示
+async function rescanSelectedDirs(dirs: string[]): Promise<{ scanned: number; added: number; removed: number }> {
+    const fresh = await localFileWatcherWorker.rescanDirs(dirs);
+    const cached = localMusicListStore.getValue();
+    const cachedKeys = new Set(cached.map((it) => `${it.platform}+${it.id}`));
+    const added = fresh.filter((it) => !cachedKeys.has(`${it.platform}+${it.id}`)).length;
+    const freshPaths = new Set(fresh.map((it) => it.$$localPath));
+    const staleKeys = cached
+        .filter((it) => !freshPaths.has(it.$$localPath) && dirs.some((dir) => isSubDir(dir, it.$$localPath)))
+        .map((it) => [it.platform, it.id]);
+    await musicSheetDB.transaction(
+        "rw",
+        musicSheetDB.localMusicStore,
+        async () => {
+            await musicSheetDB.localMusicStore.bulkPut(fresh);
+            if (staleKeys.length) {
+                await musicSheetDB.localMusicStore.bulkDelete(staleKeys as any);
+            }
+            localMusicListStore.setValue(await musicSheetDB.localMusicStore.toArray());
+        },
+    );
+    return { scanned: fresh.length, added, removed: staleKeys.length };
+}
+
 // async function syncLocalMusic() {
 //   ipcRendererSend("sync-local-music");
 // }
@@ -135,4 +184,5 @@ export default {
     setupLocalMusic,
     // syncLocalMusic,
     changeWatchPath,
+    rescanSelectedDirs,
 };

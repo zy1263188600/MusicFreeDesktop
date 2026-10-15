@@ -1,5 +1,6 @@
 import * as Comlink from "comlink";
 import * as chokidar from "chokidar";
+import fs from "fs/promises";
 import path from "path";
 import { supportLocalMediaType } from "@/common/constant";
 import debounce from "lodash.debounce";
@@ -115,9 +116,56 @@ async function onRemove(fn: (filePaths: string[]) => void) {
     _onRemove = fn;
 }
 
+// 手动重扫指定目录：递归收集音频文件并解析，用于用户主动刷新（比如关软件期间的增删没同步上）
+// 与 chokidar 实时监听互补；深度上限 10，与 watch 保持一致
+async function rescanDirs(dirs: string[]): Promise<IMusic.IMusicItem[]> {
+    const out: IMusic.IMusicItem[] = [];
+
+    async function walk(dir: string, depth: number) {
+        if (depth > 10) return;
+        let entries;
+        try {
+            entries = await fs.readdir(dir, { withFileTypes: true });
+        } catch {
+            return;
+        }
+        for (const entry of entries) {
+            const fp = path.join(dir, entry.name);
+            try {
+                if (entry.isDirectory()) {
+                    await walk(fp, depth + 1);
+                } else if (
+                    entry.isFile() &&
+                    supportLocalMediaType.some((postfix) => fp.endsWith(postfix))
+                ) {
+                    const musicItem = await parseLocalMusicItem(fp);
+                    musicItem.$$localPath = fp;
+                    setInternalData<IMusic.IMusicItemInternalData>(
+                        musicItem,
+                        "downloadData",
+                        {
+                            path: fp,
+                            quality: "standard",
+                        },
+                    );
+                    out.push(musicItem);
+                }
+            } catch {
+                // 单个文件/目录失败跳过，不中断整批
+            }
+        }
+    }
+
+    for (const dir of dirs) {
+        await walk(dir, 0);
+    }
+    return out;
+}
+
 Comlink.expose({
     setupWatcher,
     changeWatchPath,
     onAdd,
     onRemove,
+    rescanDirs,
 });

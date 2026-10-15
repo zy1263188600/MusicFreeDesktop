@@ -13,6 +13,7 @@ import Checkbox from "@/renderer/components/Checkbox";
 import localMusic from "@/renderer/core/local-music";
 import { useTranslation } from "react-i18next";
 import { dialogUtil } from "@shared/utils/renderer";
+import { toast } from "react-toastify";
 
 
 export default function WatchLocalDir() {
@@ -20,6 +21,7 @@ export default function WatchLocalDir() {
     const [localDirs, setLocalDirs] = useState<string[]>([]);
     // 选中的文件夹
     const [checkedDirs, setCheckedDirs] = useState(new Set<string>());
+    const [rescanning, setRescanning] = useState(false);
     const changeLogRef = useRef(new Map<string, "add" | "delete">()); // key: path; value: op
     const { t } = useTranslation();
 
@@ -42,28 +44,53 @@ export default function WatchLocalDir() {
                 <div className="modal--body-container">
                     <div className="modal--body-container-title">
                         <span>{t("modal.scan_local_music_hint")}</span>
-                        <div
-                            role="button"
-                            data-type="normalButton"
-                            onClick={async () => {
-                                const result = await dialogUtil.showOpenDialog({
-                                    title: t("modal.scan_local_music"),
-                                    properties: ["openDirectory", "createDirectory"],
-                                });
-                                if (!result.canceled) {
-                                    const selected = result.filePaths[0];
-                                    if (!localDirs.includes(selected)) {
-                                        const changeLog = changeLogRef.current;
-                                        setCheckedDirs((prev) => {
-                                            return new Set([...prev, selected]);
-                                        });
-                                        setLocalDirs((prev) => [...prev, selected]);
-                                        changeLog.set(selected, "add");
+                        <div className="title-actions">
+                            <div
+                                role="button"
+                                data-type="normalButton"
+                                onClick={async () => {
+                                    const result = await dialogUtil.showOpenDialog({
+                                        title: t("modal.scan_local_music"),
+                                        properties: ["openDirectory", "createDirectory"],
+                                    });
+                                    if (!result.canceled) {
+                                        const selected = result.filePaths[0];
+                                        if (!localDirs.includes(selected)) {
+                                            const changeLog = changeLogRef.current;
+                                            setCheckedDirs((prev) => {
+                                                return new Set([...prev, selected]);
+                                            });
+                                            setLocalDirs((prev) => [...prev, selected]);
+                                            changeLog.set(selected, "add");
+                                        }
                                     }
-                                }
-                            }}
-                        >
-                            {t("modal.add_folder")}
+                                }}
+                            >
+                                {t("modal.add_folder")}
+                            </div>
+                            <div
+                                role="button"
+                                data-type="normalButton"
+                                onClick={async () => {
+                                    if (rescanning) return;
+                                    const dirs = [...checkedDirs];
+                                    if (!dirs.length) {
+                                        toast.info("请先勾选要刷新的文件夹");
+                                        return;
+                                    }
+                                    setRescanning(true);
+                                    try {
+                                        const result = await localMusic.rescanSelectedDirs(dirs);
+                                        toast.success(`刷新完成：扫描 ${result.scanned} 首，新增 ${result.added} 首，清理 ${result.removed} 首`);
+                                    } catch {
+                                        toast.error("刷新失败");
+                                    } finally {
+                                        setRescanning(false);
+                                    }
+                                }}
+                            >
+                                {rescanning ? "刷新中..." : "刷新"}
+                            </div>
                         </div>
                     </div>
                     <div className="modal--body-scan-content backdrop-color">

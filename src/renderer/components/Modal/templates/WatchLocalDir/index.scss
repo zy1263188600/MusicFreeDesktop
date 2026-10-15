@@ -19,6 +19,13 @@
       align-items: center;
       width: 100%;
       justify-content: space-between;
+
+      & .title-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
     }
 
     & .modal--body-scan-content {
