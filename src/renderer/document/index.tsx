@@ -45,7 +45,6 @@ function Root() {
             </HashRouter>
             <ContextMenuComponent></ContextMenuComponent>
             <ToastContainer
-                enableMultiContainer
                 draggable={false}
                 closeOnClick={false}
                 limit={5}
@@ -53,6 +52,7 @@ function Root() {
                 hideProgressBar
                 autoClose={toastDuration.short}
                 newestOnTop
+                style={{ zIndex: 20000 }}
             ></ToastContainer>
         </>
     );

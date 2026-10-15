@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import Base from "../Base";
 import "./index.scss";
-import { ToastContainer, toast } from "react-toastify";
-import { toastDuration } from "@/common/constant";
+import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import localMusicListStore from "@/renderer/core/local-music/store";
 import trackPlayer from "@/renderer/core/track-player";
@@ -104,7 +103,7 @@ export default function DuplicateMusic() {
     const startAudioTask = async (kind: "compare" | "compute-new" | "compute-all") => {
         // 音纹单槽：任何音频任务（含计算）在跑都不再启动
         if (Object.keys(duplicateScanStore.getValue().scanning).some((k) => k.startsWith("audio"))) {
-            toast.info(t("local_music_page.duplicate_music_audio_busy"), { containerId: "duplicate-music" });
+            toast.info(t("local_music_page.duplicate_music_audio_busy"));
             return;
         }
         setBinError(null);
@@ -159,7 +158,7 @@ export default function DuplicateMusic() {
                     hit: stats.hit,
                     added: Math.max(0, after - (before - removed)),
                     removed,
-                }), { containerId: "duplicate-music" });
+                }));
             }
         } finally {
             clearScanCancelled(runKey);
@@ -171,17 +170,6 @@ export default function DuplicateMusic() {
     return (
         <Base defaultClose>
             <div className="modal--duplicate-music-container shadow backdrop-color">
-                <ToastContainer
-                    containerId="duplicate-music"
-                    enableMultiContainer
-                    draggable={false}
-                    closeOnClick={false}
-                    limit={3}
-                    pauseOnFocusLoss={false}
-                    hideProgressBar
-                    autoClose={toastDuration.short}
-                    newestOnTop
-                ></ToastContainer>
                 <Base.Header>{t("local_music_page.duplicate_music")}</Base.Header>
                 <div className="toolbar">
                     <div className="tabs-block">
@@ -333,13 +321,13 @@ export default function DuplicateMusic() {
                             data-type="normalButton"
                             onClick={async () => {
                                 if (Object.keys(duplicateScanStore.getValue().scanning).some((k) => k.startsWith("audio"))) {
-                                    toast.info(t("local_music_page.duplicate_music_audio_busy"), { containerId: "duplicate-music" });
+                                    toast.info(t("local_music_page.duplicate_music_audio_busy"));
                                     return;
                                 }
                                 await clearFingerprintCache();
                                 clearScanResults();
                                 await refreshCacheSize();
-                                toast.success(t("local_music_page.duplicate_music_cache_cleared"), { containerId: "duplicate-music" });
+                                toast.success(t("local_music_page.duplicate_music_cache_cleared"));
                             }}
                         >{t("local_music_page.duplicate_music_clear_cache")}</div>
                         <span className="cache-size">{t("settings.local_music.fingerprint_cache_size")}: {cacheSize}</span>
