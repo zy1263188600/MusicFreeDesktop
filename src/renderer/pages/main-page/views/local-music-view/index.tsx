@@ -1,4 +1,5 @@
 import localMusicListStore from "@/renderer/core/local-music/store";
+import duplicateScanStore from "@/renderer/components/Modal/templates/DuplicateMusic/store";
 import { useTranslation } from "react-i18next";
 
 import "./index.scss";
@@ -30,6 +31,13 @@ export default function LocalMusicView() {
     >(null);
 
     const [isPending, startTransition] = useTransition();
+
+    // 去重扫描状态：有任务在跑时按钮显示进度
+    const scanState = duplicateScanStore.useValue();
+    const activeScans = Object.values(scanState.scanning);
+    const scanPct = activeScans.length
+        ? Math.round(activeScans.reduce((sum, it) => sum + (it.total ? it.done / it.total : 0), 0) / activeScans.length * 100)
+        : 0;
 
     useEffect(() => {
         if (inputSearch.trim() === "") {
@@ -77,14 +85,31 @@ export default function LocalMusicView() {
         >
             <div className="header">{t("local_music_page.local_music")}</div>
             <div className="operations">
-                <div
-                    data-type="normalButton"
-                    role="button"
-                    onClick={() => {
-                        showModal("WatchLocalDir");
-                    }}
-                >
-                    {t("local_music_page.auto_scan")}
+                <div className="left">
+                    <div
+                        data-type="normalButton"
+                        role="button"
+                        onClick={() => {
+                            showModal("WatchLocalDir");
+                        }}
+                    >
+                        {t("local_music_page.auto_scan")}
+                    </div>
+
+                    <div
+                        data-type="normalButton"
+                        role="button"
+                        className="duplicate-music-btn"
+                        data-scanning={activeScans.length > 0}
+                        title={activeScans.length > 0 ? `${scanPct}%` : undefined}
+                        onClick={() => {
+                            showModal("DuplicateMusic");
+                        }}
+                    >
+                        <span className="scan-fill" style={{ width: `${scanPct}%` }} />
+                        <span className="scan-sheen" />
+                        <span className="scan-label">{t("local_music_page.duplicate_music")}</span>
+                    </div>
                 </div>
                 <div className="operations-layout">
                     <input

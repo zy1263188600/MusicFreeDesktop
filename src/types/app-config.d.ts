@@ -92,6 +92,8 @@ interface _IAppConfig {
 
     /** 本地音乐配置 */
     "localMusic.watchDir": string[];
+    /** 指纹缓存目录，为空时随 userData */
+    "localMusic.fingerprintCacheDir": string;
 
     /** 不需要用户配置的数据 */
     "private.mainWindowSize": ICommon.ISize;

@@ -17,6 +17,7 @@ import axios from "axios";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import PluginManager from "@shared/plugin-manager/main";
 import ServiceManager from "@shared/service-manager/main";
+import FingerprintService from "@shared/audio-fingerprint/main";
 import utils from "@shared/utils/main";
 import messageBus from "@shared/message-bus/main";
 import shortCut from "@shared/short-cut/main";
@@ -166,6 +167,7 @@ app.whenReady().then(async () => {
 
 async function bootstrap() {
     ServiceManager.setup(windowManager);
+    FingerprintService.setup();
 
     const downloadPath = AppConfig.getConfig("download.path");
     if (!downloadPath) {

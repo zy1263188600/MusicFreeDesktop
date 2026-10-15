@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "取消",
+    "close": "關閉",
     "confirm": "確認",
     "download": "下載",
     "downloading": "下載中",
@@ -124,6 +125,26 @@
   "local_music_page": {
     "local_music": "本地音樂",
     "auto_scan": "自動掃描",
+    "duplicate_music": "音樂去重",
+    "duplicate_music_mode_audio": "音紋相似",
+    "duplicate_music_mode_exact": "hash相同",
+    "duplicate_music_mode_tag": "標籤相同",
+    "duplicate_music_mode_filename": "檔名相同",
+    "duplicate_music_level_strict": "嚴格",
+    "duplicate_music_level_standard": "標準",
+    "duplicate_music_level_loose": "寬鬆",
+    "duplicate_music_compare": "比對",
+    "duplicate_music_recompare": "重新比對",
+    "duplicate_music_compute": "計算音紋",
+    "duplicate_music_compute_new": "計算新增音紋",
+    "duplicate_music_compute_all": "重新計算所有音紋",
+    "duplicate_music_phase_compute": "計算指紋",
+    "duplicate_music_phase_compare": "比對",
+    "duplicate_music_compute_report": "計算指紋 {{computed}} 個，命中快取 {{hit}} 個，新增 {{added}} 個，清理 {{removed}} 個",
+    "duplicate_music_scanning": "後台掃描中",
+    "duplicate_music_audio_busy": "音紋掃描進行中，請稍候",
+    "duplicate_music_clear_cache": "清除指紋快取",
+    "duplicate_music_cache_cleared": "指紋快取已清除",
     "search_local_music": "搜尋本地音樂",
     "list_view": "列表視圖",
     "artist_view": "藝術家視圖",
@@ -255,6 +276,7 @@
       "normal": "一般",
       "play_music": "播放",
       "download": "下載",
+      "local_music": "本地音樂",
       "lyric": "歌詞",
       "plugin": "插件",
       "theme": "主題",
@@ -262,6 +284,12 @@
       "network": "網絡",
       "backup": "備份與恢復",
       "about": "關於 MusicFree"
+    },
+    "local_music": {
+      "fingerprint_cache_folder": "指紋快取目錄",
+      "fingerprint_cache_size": "指紋快取大小",
+      "clear_fingerprint_cache": "清除指紋快取",
+      "cache_cleared": "指紋快取已清除"
     },
     "normal": {
       "check_update": "啟動應用時檢查更新",

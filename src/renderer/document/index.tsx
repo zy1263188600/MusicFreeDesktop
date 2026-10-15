@@ -45,6 +45,7 @@ function Root() {
             </HashRouter>
             <ContextMenuComponent></ContextMenuComponent>
             <ToastContainer
+                enableMultiContainer
                 draggable={false}
                 closeOnClick={false}
                 limit={5}

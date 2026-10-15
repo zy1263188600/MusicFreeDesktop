@@ -1,0 +1,236 @@
+.modal--duplicate-music-container {
+  position: relative;
+  width: 640px;
+  max-width: 92vw;
+  max-height: 80vh;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+
+  // toast 钉在去重窗口内部右上角，而不是最外层窗口
+  .Toastify__toast-container--top-right {
+    position: absolute;
+    top: 3.5rem;
+    right: 0.75rem;
+    width: 360px;
+  }
+
+  .Toastify__toast {
+    font-size: 0.95rem;
+    min-height: 56px;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 16px 0;
+
+    .tabs-block {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+  }
+
+  .tab-list-container {
+    margin-top: 0;
+    column-gap: 1rem;
+    padding: 0;
+    .tab-list-item {
+      font-size: 1rem;
+    }
+    .tab-list-item + .tab-list-item {
+      border-left: 1px solid var(--dividerColor);
+      padding-left: 1rem;
+    }
+    // 有进度时用填充条代替选中下划线，类似任务栏下载效果
+    .tab-list-item.has-progress::after {
+      display: none;
+    }
+    .tab-progress {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      height: 4px;
+      border-radius: 2px;
+      background-color: var(--primaryColor);
+      opacity: 0.45;
+      pointer-events: none;
+    }
+    .tab-cancel {
+      margin-left: 6px;
+      opacity: 0.55;
+      font-size: 0.9em;
+      line-height: 1;
+      &:hover {
+        opacity: 1;
+        color: var(--dangerColor, #fc5f5f);
+      }
+    }
+  }
+
+  .assist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 16px 4px;
+    align-items: center;
+  }
+
+  .audio-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 16px 0;
+    .level-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      .level-label {
+        font-size: 0.85em;
+        opacity: 0.6;
+        user-select: none;
+        white-space: nowrap;
+      }
+      .level-item {
+        cursor: pointer;
+        font-size: 0.85em;
+        opacity: 0.7;
+        white-space: nowrap;
+        user-select: none;
+        &:hover {
+          opacity: 1;
+        }
+        &.active {
+          color: var(--primaryColor);
+          font-weight: bold;
+        }
+      }
+    }
+    .cache-size {
+      font-size: 0.85em;
+      opacity: 0.6;
+      user-select: none;
+    }
+  }
+
+  .progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    // 出现/消失不引起下方列表跳动
+    min-height: 40px;
+    box-sizing: border-box;
+    .cancel-progress {
+      color: var(--primaryColor);
+      white-space: nowrap;
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+    .progress-bar {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background-color: var(--dividerColor);
+      overflow: hidden;
+      span {
+        display: block;
+        height: 100%;
+        background-color: var(--primaryColor);
+        transition: width 0.2s ease;
+      }
+    }
+  }
+
+  .error {
+    padding: 8px 16px;
+    color: var(--dangerColor, #fc5f5f);
+  }
+
+  .groups {
+    flex: 1;
+    min-height: 200px;
+    overflow-y: auto;
+    margin: 8px 16px 0;
+    border: 1px solid var(--dividerColor);
+    border-radius: 6px;
+    .group {
+      padding: 4px 0 8px;
+      & + .group {
+        border-top: 1px solid var(--dividerColor);
+      }
+      .group-header {
+        padding: 6px 12px 2px;
+        font-size: 0.85em;
+        opacity: 0.7;
+        user-select: none;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 6px 12px;
+        cursor: pointer;
+        .titles {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          .title-row,
+          .file-row {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            .title,
+            .file-name {
+              flex: 1;
+              min-width: 0;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .meta {
+              flex-shrink: 0;
+              font-size: 0.85em;
+              opacity: 0.6;
+              white-space: nowrap;
+            }
+          }
+          .file-name {
+            font-size: 0.8em;
+            opacity: 0.6;
+            user-select: text;
+          }
+        }
+        .action {
+          color: var(--primaryColor);
+          white-space: nowrap;
+          &:hover {
+            text-decoration: underline;
+          }
+        }
+        &:hover {
+          background-color: var(--listHoverColor);
+        }
+        &.selected {
+          background: color-mix(in srgb, var(--primaryColor) 12%, transparent);
+        }
+      }
+    }
+  }
+
+  .footer-options {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+}

@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "Cancel",
+    "close": "Close",
     "confirm": "Confirm",
     "download": "Download",
     "downloading": "Downloading",
@@ -124,6 +125,26 @@
   "local_music_page": {
     "local_music": "Local Music",
     "auto_scan": "Auto Scan",
+    "duplicate_music": "Duplicate Music",
+    "duplicate_music_mode_audio": "Similar Audio",
+    "duplicate_music_mode_exact": "Same Hash",
+    "duplicate_music_mode_tag": "Same Tags",
+    "duplicate_music_mode_filename": "Same Filename",
+    "duplicate_music_level_strict": "Strict",
+    "duplicate_music_level_standard": "Standard",
+    "duplicate_music_level_loose": "Loose",
+    "duplicate_music_compare": "Compare",
+    "duplicate_music_recompare": "Recompare",
+    "duplicate_music_compute": "Compute Fingerprints",
+    "duplicate_music_compute_new": "Compute New Fingerprints",
+    "duplicate_music_compute_all": "Recompute All Fingerprints",
+    "duplicate_music_phase_compute": "Computing fingerprints",
+    "duplicate_music_phase_compare": "Comparing",
+    "duplicate_music_compute_report": "Computed {{computed}}, cache hits {{hit}}, added {{added}}, pruned {{removed}}",
+    "duplicate_music_scanning": " scanning in background",
+    "duplicate_music_audio_busy": "Audio scan in progress, please wait",
+    "duplicate_music_clear_cache": "Clear Fingerprint Cache",
+    "duplicate_music_cache_cleared": "Fingerprint cache cleared",
     "search_local_music": "Search Local Music",
     "list_view": "List View",
     "artist_view": "Artist View",
@@ -255,6 +276,7 @@
       "normal": "General",
       "play_music": "Playback",
       "download": "Download",
+      "local_music": "Local Music",
       "lyric": "Lyric",
       "plugin": "Plugin",
       "theme": "Theme",
@@ -262,6 +284,12 @@
       "network": "Network",
       "backup": "Backup & Restore",
       "about": "About MusicFree"
+    },
+    "local_music": {
+      "fingerprint_cache_folder": "Fingerprint Cache Folder",
+      "fingerprint_cache_size": "Fingerprint Cache Size",
+      "clear_fingerprint_cache": "Clear Fingerprint Cache",
+      "cache_cleared": "Fingerprint cache cleared"
     },
     "normal": {
       "check_update": "Check for updates on startup",

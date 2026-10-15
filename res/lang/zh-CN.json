@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "取消",
+    "close": "关闭",
     "confirm": "确认",
     "download": "下载",
     "downloading": "下载中",
@@ -110,6 +111,26 @@
   "local_music_page": {
     "local_music": "本地音乐",
     "auto_scan": "自动扫描",
+    "duplicate_music": "音乐去重",
+    "duplicate_music_mode_audio": "音纹相似",
+    "duplicate_music_mode_exact": "hash相同",
+    "duplicate_music_mode_tag": "标签相同",
+    "duplicate_music_mode_filename": "文件名相同",
+    "duplicate_music_level_strict": "严格",
+    "duplicate_music_level_standard": "标准",
+    "duplicate_music_level_loose": "宽松",
+    "duplicate_music_compare": "对比",
+    "duplicate_music_recompare": "重新对比",
+    "duplicate_music_compute": "计算音纹",
+    "duplicate_music_compute_new": "计算新增音纹",
+    "duplicate_music_compute_all": "重算所有音纹",
+    "duplicate_music_phase_compute": "计算指纹",
+    "duplicate_music_phase_compare": "对比",
+    "duplicate_music_compute_report": "计算指纹 {{computed}} 个，命中缓存 {{hit}} 个，新增 {{added}} 个，清理 {{removed}} 个",
+    "duplicate_music_scanning": "后台扫描中",
+    "duplicate_music_audio_busy": "音纹扫描进行中，请稍候",
+    "duplicate_music_clear_cache": "清空指纹缓存",
+    "duplicate_music_cache_cleared": "指纹缓存已清空",
     "search_local_music": "搜索本地音乐",
     "list_view": "列表视图",
     "artist_view": "作者视图",
@@ -233,6 +254,7 @@
       "normal": "常规",
       "play_music": "播放",
       "download": "下载",
+      "local_music": "本地音乐",
       "lyric": "歌词",
       "plugin": "插件",
       "theme": "主题",
@@ -240,6 +262,12 @@
       "network": "网络",
       "backup": "备份与恢复",
       "about": "关于 MusicFree"
+    },
+    "local_music": {
+      "fingerprint_cache_folder": "指纹缓存目录",
+      "fingerprint_cache_size": "指纹缓存占用",
+      "clear_fingerprint_cache": "清空指纹缓存",
+      "cache_cleared": "指纹缓存已清空"
     },
     "normal": {
       "check_update": "应用启动时检测软件版本更新",

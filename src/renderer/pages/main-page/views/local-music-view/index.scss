@@ -22,6 +22,45 @@
     align-items: center;
     justify-content: space-between;
 
+    & .left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        & .duplicate-music-btn {
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+
+            & .scan-label {
+                position: relative;
+                z-index: 1;
+            }
+
+            & .scan-fill,
+            & .scan-sheen {
+                display: none;
+                position: absolute;
+                inset: 0;
+                border-radius: inherit;
+                pointer-events: none;
+            }
+
+            &[data-scanning="true"] .scan-fill {
+                display: block;
+                z-index: 0;
+                background-color: color-mix(in srgb, var(--primaryColor) 25%, transparent);
+            }
+
+            &[data-scanning="true"] .scan-sheen {
+                display: block;
+                background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+                background-size: 200% 100%;
+                animation: duplicate-charging 1.2s linear infinite;
+            }
+        }
+    }
+
     & .operations-layout {
       display: flex;
       align-items: center;
@@ -53,5 +92,14 @@
         }
       }
     }
+  }
+}
+
+@keyframes duplicate-charging {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -100% 0;
   }
 }

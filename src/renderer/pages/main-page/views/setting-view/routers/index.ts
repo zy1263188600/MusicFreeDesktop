@@ -3,6 +3,7 @@ import About from "./About";
 import Backup from "./Backup";
 import Download from "./Download";
 import Lyric from "./Lyric";
+import LocalMusic from "./LocalMusic";
 import Network from "./Network";
 import Normal from "./Normal";
 import PlayMusic from "./PlayMusic";
@@ -21,6 +22,10 @@ export default [
     {
         id: "download",
         component: Download,
+    },
+    {
+        id: "localMusic",
+        component: LocalMusic,
     },
     {
         id: "lyric",

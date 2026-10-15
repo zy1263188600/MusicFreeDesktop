@@ -11,6 +11,7 @@ import SimpleInputWithState from "./SimpleInputWithState";
 import Sparkles from "./Sparkles";
 import Update from "./Update";
 import WatchLocalDir from "./WatchLocalDir";
+import DuplicateMusic from "./DuplicateMusic";
 
 export default {
     Base,
@@ -22,6 +23,7 @@ export default {
     Reconfirm,
     Update,
     WatchLocalDir,
+    DuplicateMusic,
     SelectOne,
     PluginSubscription,
     SearchLyric,

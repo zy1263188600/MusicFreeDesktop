@@ -13,7 +13,10 @@ const config: ForgeConfig = {
     appBundleId: "fun.upup.musicfree",
     icon: path.resolve(__dirname, "res/logo"),
     executableName: "MusicFree",
-    extraResource: [path.resolve(__dirname, "res")],
+    extraResource: [
+      path.resolve(__dirname, "res"),
+      path.resolve(__dirname, "resources/bin"),
+    ],
     protocols: [
       {
         name: "MusicFree",
