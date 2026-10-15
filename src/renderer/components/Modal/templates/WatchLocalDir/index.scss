@@ -28,6 +28,19 @@
       }
     }
 
+    & .rescan-result-bar {
+      flex-shrink: 0;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      background-color: var(--listActiveColor);
+      border: 1px solid var(--dividerColor);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     & .modal--body-scan-content {
       width: 100%;
       margin-top: 12px;
@@ -36,11 +49,39 @@
       overflow-y: auto;
     }
 
+    & .dir-group {
+      border-bottom: 1px solid var(--dividerColor);
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
     & .row-container {
       height: 2.6rem;
       padding: 0 8px;
       display: flex;
       align-items: center;
+
+      & .expand-toggle {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.7;
+        & svg {
+          width: 16px;
+          height: 16px;
+        }
+        &:hover {
+          opacity: 1;
+        }
+        &.expand-toggle--empty {
+          pointer-events: none;
+        }
+      }
 
       & .title {
         white-space: nowrap;
@@ -48,6 +89,26 @@
         flex: 1;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+
+      & .song-count {
+        flex-shrink: 0;
+        font-size: 0.8rem;
+        opacity: 0.7;
+        margin-right: 6px;
+        white-space: nowrap;
+      }
+
+      &.sub-row {
+        height: 2.2rem;
+        background-color: rgba(0, 0, 0, 0.04);
+        & .sub-indent {
+          width: 20px;
+          flex-shrink: 0;
+        }
+        & .sub-title {
+          opacity: 0.85;
+        }
       }
 
       & .delete-path {
