@@ -128,7 +128,8 @@
     "duplicate_music_phase_compare": "对比",
     "duplicate_music_compute_report": "计算指纹 {{computed}} 个，命中缓存 {{hit}} 个，新增 {{added}} 个，清理 {{removed}} 个",
     "duplicate_music_scanning": "后台扫描中",
-    "duplicate_music_audio_busy": "音纹扫描进行中，请稍候",
+    "duplicate_music_audio_busy_compare": "音纹对比进行中，请稍候",
+    "duplicate_music_audio_busy_compute": "音纹计算进行中，请稍候",
     "duplicate_music_clear_cache": "清空指纹缓存",
     "duplicate_music_cache_cleared": "指纹缓存已清空",
     "search_local_music": "搜索本地音乐",
@@ -265,7 +266,7 @@
     },
     "local_music": {
       "fingerprint_cache_folder": "指纹缓存目录",
-      "fingerprint_cache_size": "指纹缓存占用",
+      "fingerprint_cache_size": "指纹缓存、标记占用",
       "clear_fingerprint_cache": "清空指纹缓存",
       "cache_cleared": "指纹缓存已清空"
     },

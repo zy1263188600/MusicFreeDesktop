@@ -142,7 +142,8 @@
     "duplicate_music_phase_compare": "Comparing",
     "duplicate_music_compute_report": "Computed {{computed}}, cache hits {{hit}}, added {{added}}, pruned {{removed}}",
     "duplicate_music_scanning": " scanning in background",
-    "duplicate_music_audio_busy": "Audio scan in progress, please wait",
+    "duplicate_music_audio_busy_compare": "Audio comparison in progress, please wait",
+    "duplicate_music_audio_busy_compute": "Audio fingerprint computation in progress, please wait",
     "duplicate_music_clear_cache": "Clear Fingerprint Cache",
     "duplicate_music_cache_cleared": "Fingerprint cache cleared",
     "search_local_music": "Search Local Music",
@@ -287,7 +288,7 @@
     },
     "local_music": {
       "fingerprint_cache_folder": "Fingerprint Cache Folder",
-      "fingerprint_cache_size": "Fingerprint Cache Size",
+      "fingerprint_cache_size": "Fingerprint Cache, Marks Usage",
       "clear_fingerprint_cache": "Clear Fingerprint Cache",
       "cache_cleared": "Fingerprint cache cleared"
     },

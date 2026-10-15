@@ -55,9 +55,9 @@ table {
     }
 }
 
-// Toast组件位置调整（z-index 必须高于 Modal 遮罩 10010，否则刷新结果等提示会被挡住）
+// Toast组件位置调整（z-index 只比 Modal 遮罩 10010 高一档，右键菜单 999999 仍在最上）
 .Toastify__toast-container {
-    z-index: 20000 !important;
+    z-index: 10020 !important;
 }
 .Toastify__toast-container--top-right {
     top: calc(var(--appHeaderHeight) + 1rem);

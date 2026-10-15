@@ -174,6 +174,9 @@ export default function WatchLocalDir() {
                             <div
                                 role="button"
                                 data-type="normalButton"
+                                className="refresh-btn"
+                                data-scanning={rescanning}
+                                data-disabled={rescanning}
                                 onClick={async () => {
                                     if (rescanning) return;
                                     const dirs = [...checkedDirs];
@@ -196,7 +199,9 @@ export default function WatchLocalDir() {
                                     }
                                 }}
                             >
-                                {rescanning ? "刷新中..." : "刷新"}
+                                <span className="scan-spinner" />
+                                <span className="scan-sheen" />
+                                <span className="scan-label">{rescanning ? "刷新中..." : "刷新"}</span>
                             </div>
                         </div>
                     </div>
@@ -333,7 +338,7 @@ export default function WatchLocalDir() {
                 <div className="footer-options">
                     <div
                         role="button"
-                        data-type="primaryButton"
+                        data-type="normalButton"
                         onClick={async () => {
                             setUserPreferenceIDB("localWatchDir", localDirs);
                             setUserPreferenceIDB("localWatchDirChecked", [...checkedDirs]);

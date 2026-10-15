@@ -2,7 +2,7 @@ import "./index.scss";
 import PathSettingItem from "../../components/PathSettingItem";
 import useAppConfig from "@/hooks/useAppConfig";
 import { getFingerprintCacheInfo, clearFingerprintCache } from "@shared/audio-fingerprint/renderer";
-import duplicateScanStore from "@/renderer/components/Modal/templates/DuplicateMusic/store";
+import { findAudioRun } from "@/renderer/components/Modal/templates/DuplicateMusic/store";
 import { toast } from "react-toastify";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,7 +17,7 @@ export default function LocalMusic() {
     const [sizeBytes, setSizeBytes] = useState(0);
 
     useEffect(() => {
-        getFingerprintCacheInfo().then((info) => setSizeBytes(info.sizeBytes));
+        getFingerprintCacheInfo().then((info) => setSizeBytes(info.sizeBytes + (info.marksSizeBytes ?? 0)));
     }, [cacheDir]);
 
     return (
@@ -34,13 +34,14 @@ export default function LocalMusic() {
                     role="button"
                     data-type="normalButton"
                     onClick={async () => {
-                        if (Object.keys(duplicateScanStore.getValue().scanning).some((k) => k.startsWith("audio"))) {
-                            toast.info(t("local_music_page.duplicate_music_audio_busy"));
+                        const runningAudio = findAudioRun();
+                        if (runningAudio) {
+                            toast.info(t(`local_music_page.${runningAudio.prog.phase === "compute" ? "duplicate_music_audio_busy_compute" : "duplicate_music_audio_busy_compare"}`));
                             return;
                         }
                         await clearFingerprintCache();
                         const info = await getFingerprintCacheInfo();
-                        setSizeBytes(info.sizeBytes);
+                        setSizeBytes(info.sizeBytes + (info.marksSizeBytes ?? 0));
                         toast.success(t("settings.local_music.cache_cleared"));
                     }}
                 >

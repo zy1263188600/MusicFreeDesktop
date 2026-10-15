@@ -52,7 +52,7 @@ function Root() {
                 hideProgressBar
                 autoClose={toastDuration.short}
                 newestOnTop
-                style={{ zIndex: 20000 }}
+                style={{ zIndex: 10020 }}
             ></ToastContainer>
         </>
     );

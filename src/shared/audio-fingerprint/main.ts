@@ -30,6 +30,13 @@ function cachePath(): string {
     return path.join(cacheDir(), "fingerprint-cache.json");
 }
 
+// 手动版本标记与指纹缓存同目录共存亡（弹窗里用同名常量读写同一文件）
+const MARKS_FILENAME = "version-marks.json";
+
+function marksPath(): string {
+    return path.join(cacheDir(), MARKS_FILENAME);
+}
+
 async function readCacheFile(): Promise<Record<string, CacheEntry>> {
     try {
         return JSON.parse(await fsp.readFile(cachePath(), "utf-8"));
@@ -43,8 +50,9 @@ async function readCacheFile(): Promise<Record<string, CacheEntry>> {
 let memCache: Record<string, CacheEntry> | null = null;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 // 自上次落盘后的写入计数：攒够一批就刷一次，杀进程/断电最多丢一批
+// （每刷一次要同步 stringify 几 MB 的 JSON，会卡主线程几百毫秒，批次不能太小）
 let pendingWrites = 0;
-const FLUSH_EVERY_N_WRITES = 20;
+const FLUSH_EVERY_N_WRITES = 50;
 
 async function getMemCache(): Promise<Record<string, CacheEntry>> {
     if (!memCache) memCache = await readCacheFile();
@@ -206,11 +214,18 @@ class FingerprintService {
             const cacheFile = cachePath();
             try {
                 const st = await fsp.stat(cacheFile);
-                if (!st.isFile()) return { path: cacheFile, sizeBytes: 0, exists: false, count: 0 };
+                if (!st.isFile()) return { path: cacheFile, sizeBytes: 0, exists: false, count: 0, marksSizeBytes: 0 };
                 const cache = await getMemCache();
-                return { path: cacheFile, sizeBytes: st.size, exists: true, count: Object.keys(cache).length };
+                let marksSizeBytes = 0;
+                try {
+                    const marksStat = await fsp.stat(marksPath());
+                    if (marksStat.isFile()) marksSizeBytes = marksStat.size;
+                } catch {
+                    // 无标记文件=0
+                }
+                return { path: cacheFile, sizeBytes: st.size, exists: true, count: Object.keys(cache).length, marksSizeBytes };
             } catch {
-                return { path: cacheFile, sizeBytes: 0, exists: false, count: 0 };
+                return { path: cacheFile, sizeBytes: 0, exists: false, count: 0, marksSizeBytes: 0 };
             }
         });
 
@@ -260,6 +275,11 @@ class FingerprintService {
                     await fsp.unlink(cachePath());
                 } catch {
                     // 缓存文件不存在也算成功
+                }
+                try {
+                    await fsp.unlink(marksPath());
+                } catch {
+                    // 标记与缓存共存亡：清库顺手清掉
                 }
                 return { ok: true };
             });

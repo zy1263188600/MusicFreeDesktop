@@ -142,7 +142,8 @@
     "duplicate_music_phase_compare": "比對",
     "duplicate_music_compute_report": "計算指紋 {{computed}} 個，命中快取 {{hit}} 個，新增 {{added}} 個，清理 {{removed}} 個",
     "duplicate_music_scanning": "後台掃描中",
-    "duplicate_music_audio_busy": "音紋掃描進行中，請稍候",
+    "duplicate_music_audio_busy_compare": "音紋比對進行中，請稍候",
+    "duplicate_music_audio_busy_compute": "音紋計算進行中，請稍候",
     "duplicate_music_clear_cache": "清除指紋快取",
     "duplicate_music_cache_cleared": "指紋快取已清除",
     "search_local_music": "搜尋本地音樂",
@@ -287,7 +288,7 @@
     },
     "local_music": {
       "fingerprint_cache_folder": "指紋快取目錄",
-      "fingerprint_cache_size": "指紋快取大小",
+      "fingerprint_cache_size": "指紋快取、標記佔用",
       "clear_fingerprint_cache": "清除指紋快取",
       "cache_cleared": "指紋快取已清除"
     },

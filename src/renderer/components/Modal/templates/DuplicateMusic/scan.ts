@@ -100,15 +100,26 @@ function toGroups(items: ScanItem[], m: Map<string, number[]>): DuplicateGroup[]
     return out;
 }
 
-// 只给已分组的重复项批量补文件大小和缺失的时长（数量少，一次 IPC），供结果行展示
+// 只给已分组的重复项批量补文件大小和缺失的时长（数量少），供结果行展示
+// 时长探测按 20 个一批并发，避免几十个排队一个个等
 async function attachFileMeta(groups: DuplicateGroup[]): Promise<void> {
     const items = [...new Map(groups.flatMap((g) => g.items).map((it) => [it.localPath, it])).values()];
     if (!items.length) return;
     const missing = items.filter((it) => it.duration === undefined).map((it) => it.localPath);
+    const missingChunks: string[][] = [];
+    for (let i = 0; i < missing.length; i += 20) missingChunks.push(missing.slice(i, i + 20));
+    const durations: Record<string, number> = {};
+    const queue = new PQueue({ concurrency: 4 });
     try {
-        const [sizes, durations] = await Promise.all([
+        const [sizes] = await Promise.all([
             getFileStats(items.map((it) => it.localPath)),
-            missing.length ? probeDurations(missing) : ({} as Record<string, number>),
+            ...missingChunks.map((chunk) => queue.add(async () => {
+                try {
+                    Object.assign(durations, await probeDurations(chunk));
+                } catch {
+                    // 单批失败跳过
+                }
+            })),
         ]);
         items.forEach((it) => {
             const size = sizes[it.localPath];

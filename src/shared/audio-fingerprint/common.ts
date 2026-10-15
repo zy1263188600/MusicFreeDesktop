@@ -31,19 +31,22 @@ export function decodeFingerprint(fp: number[] | string): number[] {
     return out;
 }
 
-export function hammingSimilarity(a: number[], b: number[]): number {
+export function hammingSimilarity(a: number[], b: number[], minSimilarity = 0): number {
     const n = Math.min(a.length, b.length);
     if (n === 0) return 0;
-    let same = 0;
+    const total = n * 32;
+    // 允许的最大失配位数：超过就已经不可能达标，直接返回（一定小于阈值）
+    const allowedMismatches = Math.floor((1 - minSimilarity) * total);
+    let mismatched = 0;
     for (let i = 0; i < n; i++) {
         let x = (a[i] ^ b[i]) >>> 0;
-        let bits = 0;
-        while (x) {
-            bits += x & 1; x >>>= 1;
-        }
-        same += 32 - bits;
+        // SWAR 并行计数 32 位中的 1，无分支循环
+        x = x - ((x >>> 1) & 0x55555555);
+        x = (x & 0x33333333) + ((x >>> 2) & 0x33333333);
+        mismatched += (((x + (x >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
+        if (mismatched > allowedMismatches) return (total - mismatched) / total;
     }
-    return same / (n * 32);
+    return (total - mismatched) / total;
 }
 
 export function groupByKey(keys: string[]): Map<string, number[]> {
@@ -54,6 +57,49 @@ export function groupByKey(keys: string[]): Map<string, number[]> {
         else m.set(k, [i]);
     });
     return m;
+}
+
+// 版本对判定：只用于恰好 2 首的组。返回原因字符串，无则返回 null
+// 覆盖：版本关键词（国语/粤语…）、中英文标题、同歌手不同标题、疑似翻唱
+export interface IVersionCheckItem {
+    title: string;
+    artist: string;
+    localPath: string;
+}
+
+const VERSION_KEYWORDS = ["国语", "粤语", "普通话", "國語", "粵語", "mandarin", "cantonese", "翻唱", "cover"];
+
+function baseNameOf(filePath: string): string {
+    return filePath.split(/[/\\]/).pop() ?? filePath;
+}
+
+function hasCJK(text: string): boolean {
+    return /[぀-ヿ㐀-䶿一-鿿]/.test(text);
+}
+
+export function detectVersionReason(a: IVersionCheckItem, b: IVersionCheckItem): string | null {
+    const lowered = [a.title, b.title, baseNameOf(a.localPath), baseNameOf(b.localPath)]
+        .map((s) => (s ?? "").toLowerCase());
+    for (const keyword of VERSION_KEYWORDS) {
+        if (lowered.some((s) => s.includes(keyword))) return `含“${keyword}”`;
+    }
+    const titleA = a.title ?? "";
+    const titleB = b.title ?? "";
+    if (titleA && titleB && hasCJK(titleA) !== hasCJK(titleB)) return "中英文标题";
+    const artistA = normalizeTag(a.artist);
+    const artistB = normalizeTag(b.artist);
+    const nameA = normalizeTag(titleA);
+    const nameB = normalizeTag(titleB);
+    if (!artistA || !artistB || !nameA || !nameB) return null;
+    // 不同歌手但标题相同：疑似翻唱。注意同歌手不同标题不再自动判定，
+    // 那种情况（一模一样但文件名不同）误伤太多，改由用户手动标记
+    if (artistA !== artistB && nameA === nameB) return "疑似翻唱";
+    return null;
+}
+
+/** 手动版本标记的组签名：成员 key 排序后拼接，成员不变则稳定 */
+export function buildVersionSignature(keys: string[]): string {
+    return [...keys].sort().join("|");
 }
 
 export function groupBySimilarity(
@@ -69,7 +115,7 @@ export function groupBySimilarity(
         for (let j = i + 1; j < items.length; j++) {
             if (used.has(items[j].index)) continue;
             if (Math.abs(items[i].duration - items[j].duration) > 15) continue;
-            const sim = hammingSimilarity(items[i].fingerprint, items[j].fingerprint);
+            const sim = hammingSimilarity(items[i].fingerprint, items[j].fingerprint, threshold);
             if (sim >= threshold) {
                 g.push(items[j].index);
                 used.add(items[j].index);

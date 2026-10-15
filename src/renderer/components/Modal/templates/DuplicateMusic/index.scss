@@ -5,8 +5,10 @@
   border-radius: 8px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 
   .toolbar {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -58,6 +60,7 @@
   }
 
   .assist {
+    flex-shrink: 0;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -66,6 +69,7 @@
   }
 
   .audio-row {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -104,6 +108,7 @@
   }
 
   .progress {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -134,27 +139,85 @@
   }
 
   .error {
+    flex-shrink: 0;
     padding: 8px 16px;
     color: var(--dangerColor, #fc5f5f);
   }
 
-  .groups {
-    flex: 1;
-    min-height: 200px;
-    overflow-y: auto;
+  // 结果区（列表 + 版本专区）定死高度：扫描中也不会塌扁，小屏只压到保底；
+  // 整个框只有这一处滚动条，两个分区不再各自滚动
+  .results {
+    flex: 0 1 360px;
+    min-height: 180px;
+    max-height: 360px;
     margin: 8px 16px 0;
     border: 1px solid var(--dividerColor);
     border-radius: 6px;
-    .group {
+    overflow-y: auto;
+  }
+
+  .groups {
+    .groups-header {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--backdropColor, var(--backgroundColor));
+      padding: 8px 12px 4px;
+      font-size: 0.9em;
+      font-weight: bold;
+      color: var(--primaryColor);
+      user-select: none;
+    }
+  }
+
+  .version-section {
+    border-top: 1px dashed var(--dividerColor);
+    .version-header {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--backdropColor, var(--backgroundColor));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.9em;
+      font-weight: bold;
+      color: var(--primaryColor);
+      &:hover {
+        background-color: var(--listHoverColor);
+      }
+    }
+    .version-group {
+      opacity: 0.9;
+    }
+  }
+
+  .group {
       padding: 4px 0 8px;
       & + .group {
         border-top: 1px solid var(--dividerColor);
       }
       .group-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
         padding: 6px 12px 2px;
         font-size: 0.85em;
         opacity: 0.7;
         user-select: none;
+        .action {
+          cursor: pointer;
+          white-space: nowrap;
+          &:hover {
+            opacity: 1;
+            color: var(--primaryColor);
+            text-decoration: underline;
+          }
+        }
       }
       .row {
         display: flex;
@@ -208,7 +271,6 @@
           background: color-mix(in srgb, var(--primaryColor) 12%, transparent);
         }
       }
-    }
   }
 
   .footer-options {
@@ -218,5 +280,26 @@
     justify-content: flex-end;
     gap: 12px;
     padding: 12px 16px;
+  }
+}
+
+// 删除二次确认的内容：Reconfirm 的 content-container 是居中 flex，这里按左对齐文档流排
+.duplicate-confirm-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 16px;
+  text-align: left;
+  p {
+    margin: 0;
+  }
+  .file-preview {
+    font-size: 0.85em;
+    opacity: 0.65;
+    word-break: break-all;
+    max-height: 96px;
+    overflow-y: auto;
   }
 }

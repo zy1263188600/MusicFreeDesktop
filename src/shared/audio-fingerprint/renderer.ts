@@ -32,7 +32,7 @@ export async function probeDurations(filePaths: string[]): Promise<Record<string
     return bridge().probeDurations(filePaths);
 }
 
-export async function getFingerprintCacheInfo(): Promise<{ path: string; sizeBytes: number; exists: boolean; count: number }> {
+export async function getFingerprintCacheInfo(): Promise<{ path: string; sizeBytes: number; exists: boolean; count: number; marksSizeBytes: number }> {
     return bridge().cacheInfo();
 }
 

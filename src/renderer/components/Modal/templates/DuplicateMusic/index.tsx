@@ -1,16 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Base from "../Base";
 import "./index.scss";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import localMusicListStore from "@/renderer/core/local-music/store";
 import trackPlayer from "@/renderer/core/track-player";
-import { shellUtil } from "@shared/utils/renderer";
+import { shellUtil, fsUtil } from "@shared/utils/renderer";
 import Checkbox from "@/renderer/components/Checkbox";
 import Empty from "@/renderer/components/Empty";
 import { checkFingerprintBinary, clearFingerprintCache, getFingerprintCacheInfo, pruneFingerprintCache } from "@shared/audio-fingerprint/renderer";
-import { runDuplicateScan, ScanMode } from "./scan";
-import duplicateScanStore, { cancelScan, clearScanResults, isScanCancelled, clearScanCancelled, setScanChecked, setScanGroups, setScanProgress } from "./store";
+import { runDuplicateScan, ScanMode, DuplicateGroup } from "./scan";
+import { detectVersionReason, buildVersionSignature } from "@shared/audio-fingerprint/common";
+import duplicateScanStore, { cancelScan, clearScanResults, findAudioRun, isScanCancelled, clearScanCancelled, setScanChecked, setScanGroups, setScanProgress, setScanUI } from "./store";
+import { Disclosure } from "@headlessui/react";
 import { showModal, hideModal } from "../..";
 import { secondsToDuration } from "@/common/time-util";
 
@@ -38,8 +40,11 @@ function formatFileSize(size: number): string {
 
 export default function DuplicateMusic() {
     const { t } = useTranslation();
-    const [mode, setMode] = useState<ScanMode>("audio");
-    const [level, setLevel] = useState<keyof typeof THRESHOLDS>("standard");
+    const [mode, setMode] = useState<ScanMode>(() => duplicateScanStore.getValue().ui.mode);
+    const [level, setLevel] = useState<keyof typeof THRESHOLDS>(() => {
+        const saved = duplicateScanStore.getValue().ui.level;
+        return (saved in THRESHOLDS ? saved : "standard") as keyof typeof THRESHOLDS;
+    });
     const [binError, setBinError] = useState<string | null>(null);
     const defSize = "0.0KB";
     const [cacheSize, setCacheSize] = useState(defSize);
@@ -52,10 +57,52 @@ export default function DuplicateMusic() {
     const groups = scanState.groupsByKey[currentKey] ?? [];
     const checked = new Set(scanState.checkedByKey[currentKey] ?? []);
     const setCheckedKeys = (next: Set<string>) => setScanChecked(currentKey, [...next]);
+    // 手动版本标记：组签名数组，存在指纹缓存同目录的 version-marks.json，随软件共存亡
+    const [manualMarks, setManualMarks] = useState<string[]>([]);
+    const marksPathRef = useRef<string | null>(null);
+    const loadManualMarks = async () => {
+        try {
+            const info = await getFingerprintCacheInfo();
+            const dir = window.path.dirname(info.path);
+            const marksPath = window.path.join(dir, "version-marks.json");
+            marksPathRef.current = marksPath;
+            const raw = await fsUtil.readFile(marksPath, "utf-8");
+            const parsed: unknown = JSON.parse(raw as unknown as string);
+            if (Array.isArray(parsed)) setManualMarks(parsed.filter((x): x is string => typeof x === "string"));
+        } catch {
+            // 无文件=无标记
+        }
+    };
+    const saveManualMarks = async (marks: string[]) => {
+        setManualMarks(marks);
+        const marksPath = marksPathRef.current;
+        if (!marksPath) return;
+        try {
+            await fsUtil.writeFile(marksPath, JSON.stringify(marks));
+        } catch {
+            // 写失败下次重进恢复旧值
+        }
+    };
+    // 版本组拆分（仅音纹模式）：手动标记的整组优先，其次恰好 2 首命中自动规则（3+ 跳过保持原样）；
+    // 选择/删除助手只碰 normalGroups
+    const manualSet = new Set(manualMarks);
+    const versionGroups: DuplicateGroup[] = [];
+    const manualVersionGroups: DuplicateGroup[] = [];
+    const normalGroups: DuplicateGroup[] = [];
+    if (mode === "audio") {
+        groups.forEach((g) => {
+            if (manualSet.has(buildVersionSignature(g.ids))) manualVersionGroups.push(g);
+            else if (g.items.length === 2 && detectVersionReason(g.items[0], g.items[1])) versionGroups.push(g);
+            else normalGroups.push(g);
+        });
+    } else {
+        normalGroups.push(...groups);
+    }
     const refreshCacheSize = async () => {
         try {
             const info = await getFingerprintCacheInfo();
-            setCacheSize(info.sizeBytes ? formatFileSize(info.sizeBytes) : defSize);
+            const totalBytes = (info.sizeBytes ?? 0) + (info.marksSizeBytes ?? 0);
+            setCacheSize(totalBytes ? formatFileSize(totalBytes) : defSize);
             setDiskCount(info.count ?? 0);
         } catch {
             // 大小读不到只影响展示
@@ -68,6 +115,7 @@ export default function DuplicateMusic() {
 
     useEffect(() => {
         refreshCacheSize();
+        loadManualMarks();
     }, []);
 
     // 非音频模式：纯对比（hash/标签/文件名不需要指纹步骤）
@@ -102,8 +150,9 @@ export default function DuplicateMusic() {
     // kind: compare=对比分组；compute-new=只算新增；compute-all=清空后全量重算
     const startAudioTask = async (kind: "compare" | "compute-new" | "compute-all") => {
         // 音纹单槽：任何音频任务（含计算）在跑都不再启动
-        if (Object.keys(duplicateScanStore.getValue().scanning).some((k) => k.startsWith("audio"))) {
-            toast.info(t("local_music_page.duplicate_music_audio_busy"));
+        const runningAudio = findAudioRun();
+        if (runningAudio) {
+            toast.info(t(`local_music_page.${runningAudio.prog.phase === "compute" ? "duplicate_music_audio_busy_compute" : "duplicate_music_audio_busy_compare"}`));
             return;
         }
         setBinError(null);
@@ -118,6 +167,7 @@ export default function DuplicateMusic() {
         if (kind === "compute-all") {
             await clearFingerprintCache();
             clearScanResults();
+            setManualMarks([]);
         }
         if (kind === "compute-new") {
             // 先清理库里已没有的失效条目，再只算新增
@@ -184,7 +234,9 @@ export default function DuplicateMusic() {
                                         role="button"
                                         className={`tab-list-item${prog ? " has-progress" : ""}`}
                                         data-headlessui-state={mode === m ? "selected" : null}
-                                        onClick={() => setMode(m)}
+                                        onClick={() => {
+                                            setMode(m); setScanUI({ mode: m }); 
+                                        }}
                                     >
                                         {t(`local_music_page.${MODE_LABELS[m]}`)}
                                         {prog && <span className="tab-progress" style={{ width: `${pct}%` }} title={`${t(`local_music_page.${prog.phase === "compute" ? "duplicate_music_phase_compute" : "duplicate_music_phase_compare"}`)} ${prog.done}/${prog.total}`} />}
@@ -197,7 +249,7 @@ export default function DuplicateMusic() {
                         </div>
                     </div>
                     {mode !== "audio" && (
-                        <div role="button" data-type="primaryButton" onClick={startCompare}>{t(currentKey in scanState.groupsByKey ? "local_music_page.duplicate_music_recompare" : "local_music_page.duplicate_music_compare")}</div>
+                        <div role="button" data-type="primaryButton" data-disabled={currentKey in scanState.scanning} onClick={startCompare}>{t(currentKey in scanState.groupsByKey ? "local_music_page.duplicate_music_recompare" : "local_music_page.duplicate_music_compare")}</div>
                     )}
                 </div>
                 {binError && <div className="error">{binError}</div>}
@@ -212,10 +264,11 @@ export default function DuplicateMusic() {
                     <div
                         role="button"
                         data-type="normalButton"
+                        data-disabled={normalGroups.length === 0}
                         onClick={() => {
-                            const keep = new Set(groups.map((g) => g.ids[0]));
+                            const keep = new Set(normalGroups.map((g) => g.ids[0]));
                             const next = new Set<string>();
-                            groups.forEach((g) => {
+                            normalGroups.forEach((g) => {
                                 g.ids.forEach((id) => {
                                     if (!keep.has(id)) next.add(id);
                                 });
@@ -226,9 +279,10 @@ export default function DuplicateMusic() {
                     <div
                         role="button"
                         data-type="normalButton"
+                        data-disabled={normalGroups.length === 0}
                         onClick={() => {
                             const next = new Set<string>();
-                            groups.forEach((g) => {
+                            normalGroups.forEach((g) => {
                                 g.ids.forEach((id) => next.add(id));
                             });
                             setCheckedKeys(next);
@@ -237,20 +291,29 @@ export default function DuplicateMusic() {
                     <div
                         role="button"
                         data-type="normalButton"
+                        data-disabled={normalGroups.length === 0}
                         onClick={() => setCheckedKeys(new Set())}
                     >清空</div>
                     <div
                         role="button"
                         data-type="normalButton"
+                        data-disabled={checked.size === 0 || currentKey in scanState.scanning}
                         onClick={() => {
                             const targets = groups.flatMap((g) => g.items).filter((it) => checked.has(it.key));
                             if (!targets.length) return;
                             const preview = targets.slice(0, 5).map((it) => (it.localPath.split(/[/\\]/).pop() ?? it.localPath)).join("、");
                             showModal("Reconfirm", {
                                 title: t("local_music_page.duplicate_music"),
-                                content: `确定将 ${targets.length} 首从音乐库移除吗？磁盘文件将保留。\n${preview}${targets.length > 5 ? `…等 ${targets.length} 个文件` : ""}`,
+                                content: (
+                                    <div className="duplicate-confirm-content">
+                                        <p>确定将 {targets.length} 首从音乐库移除吗？磁盘文件将保留。</p>
+                                        <p className="file-preview">{preview}{targets.length > 5 ? `…等 ${targets.length} 个文件` : ""}</p>
+                                    </div>
+                                ),
+                                onCancel() {
+                                    queueMicrotask(() => showModal("DuplicateMusic"));
+                                },
                                 async onConfirm() {
-                                    hideModal();
                                     const keys = new Set(targets.map((it) => it.key));
                                     const { default: musicSheetDB } = await import("@renderer/core/db/music-sheet-db");
                                     const full = localMusicListStore.getValue().filter((x) => keys.has(`${x.platform}+${x.id}`));
@@ -259,6 +322,7 @@ export default function DuplicateMusic() {
                                     setScanChecked(currentKey, []);
                                     const prevGroups = duplicateScanStore.getValue().groupsByKey[currentKey] ?? [];
                                     setScanGroups(currentKey, prevGroups.map((g) => ({ ...g, ids: g.items.filter((it) => !keys.has(it.key)).map((it) => it.key), items: g.items.filter((it) => !keys.has(it.key)) })).filter((g) => g.items.length > 1));
+                                    showModal("DuplicateMusic");
                                 },
                             });
                         }}
@@ -266,15 +330,23 @@ export default function DuplicateMusic() {
                     <div
                         role="button"
                         data-type="dangerButton"
+                        data-disabled={checked.size === 0 || currentKey in scanState.scanning}
                         onClick={() => {
                             const targets = groups.flatMap((g) => g.items).filter((it) => checked.has(it.key));
                             if (!targets.length) return;
                             const preview = targets.slice(0, 5).map((it) => (it.localPath.split(/[/\\]/).pop() ?? it.localPath)).join("、");
                             showModal("Reconfirm", {
                                 title: t("local_music_page.duplicate_music"),
-                                content: `确定彻底删除 ${targets.length} 个文件吗？磁盘文件将被删除且不可恢复。\n${preview}${targets.length > 5 ? `…等 ${targets.length} 个文件` : ""}`,
+                                content: (
+                                    <div className="duplicate-confirm-content">
+                                        <p>确定彻底删除 {targets.length} 个文件吗？磁盘文件将被删除且不可恢复。</p>
+                                        <p className="file-preview">{preview}{targets.length > 5 ? `…等 ${targets.length} 个文件` : ""}</p>
+                                    </div>
+                                ),
+                                onCancel() {
+                                    queueMicrotask(() => showModal("DuplicateMusic"));
+                                },
                                 async onConfirm() {
-                                    hideModal();
                                     const { deleteLocalFiles } = await import("@shared/audio-fingerprint/renderer");
                                     const r = await deleteLocalFiles(targets.map((it) => it.localPath));
                                     if (r.failed.length) toast.error(`有 ${r.failed.length} 个文件删除失败`);
@@ -287,6 +359,7 @@ export default function DuplicateMusic() {
                                     setScanChecked(currentKey, []);
                                     const prevGroups = duplicateScanStore.getValue().groupsByKey[currentKey] ?? [];
                                     setScanGroups(currentKey, prevGroups.map((g) => ({ ...g, ids: g.items.filter((it) => !okKeys.has(it.key)).map((it) => it.key), items: g.items.filter((it) => !okKeys.has(it.key)) })).filter((g) => g.items.length > 1));
+                                    showModal("DuplicateMusic");
                                 },
                             });
                         }}
@@ -296,11 +369,11 @@ export default function DuplicateMusic() {
                     <div className="audio-row">
                         {diskCount > 0 ? (
                             <>
-                                <div role="button" data-type="primaryButton" onClick={() => startAudioTask("compute-new")}>{t("local_music_page.duplicate_music_compute_new")}</div>
-                                <div role="button" data-type="normalButton" onClick={() => startAudioTask("compute-all")}>{t("local_music_page.duplicate_music_compute_all")}</div>
+                                <div role="button" data-type="primaryButton" data-disabled={!!audioProg} onClick={() => startAudioTask("compute-new")}>{t("local_music_page.duplicate_music_compute_new")}</div>
+                                <div role="button" data-type="normalButton" data-disabled={!!audioProg} onClick={() => startAudioTask("compute-all")}>{t("local_music_page.duplicate_music_compute_all")}</div>
                             </>
                         ) : (
-                            <div role="button" data-type="primaryButton" onClick={() => startAudioTask("compute-new")}>{t("local_music_page.duplicate_music_compute")}</div>
+                            <div role="button" data-type="primaryButton" data-disabled={!!audioProg} onClick={() => startAudioTask("compute-new")}>{t("local_music_page.duplicate_music_compute")}</div>
                         )}
                         <span className="level-inline">
                             <span className="level-label">相似度</span>
@@ -309,23 +382,27 @@ export default function DuplicateMusic() {
                                     key={lv}
                                     role="button"
                                     className={`level-item${level === lv ? " active" : ""}`}
-                                    onClick={() => setLevel(lv)}
+                                    onClick={() => {
+                                        setLevel(lv); setScanUI({ level: lv }); 
+                                    }}
                                 >
                                     {t(`local_music_page.${LEVEL_LABELS[lv]}`)}
                                 </span>
                             ))}
                         </span>
-                        <div role="button" data-type="primaryButton" onClick={() => startAudioTask("compare")}>{t(currentKey in scanState.groupsByKey ? "local_music_page.duplicate_music_recompare" : "local_music_page.duplicate_music_compare")}</div>
+                        <div role="button" data-type="primaryButton" data-disabled={!!audioProg} onClick={() => startAudioTask("compare")}>{t(currentKey in scanState.groupsByKey ? "local_music_page.duplicate_music_recompare" : "local_music_page.duplicate_music_compare")}</div>
                         <div
                             role="button"
                             data-type="normalButton"
                             onClick={async () => {
-                                if (Object.keys(duplicateScanStore.getValue().scanning).some((k) => k.startsWith("audio"))) {
-                                    toast.info(t("local_music_page.duplicate_music_audio_busy"));
+                                const runningAudio = findAudioRun();
+                                if (runningAudio) {
+                                    toast.info(t(`local_music_page.${runningAudio.prog.phase === "compute" ? "duplicate_music_audio_busy_compute" : "duplicate_music_audio_busy_compare"}`));
                                     return;
                                 }
                                 await clearFingerprintCache();
                                 clearScanResults();
+                                setManualMarks([]);
                                 await refreshCacheSize();
                                 toast.success(t("local_music_page.duplicate_music_cache_cleared"));
                             }}
@@ -333,52 +410,171 @@ export default function DuplicateMusic() {
                         <span className="cache-size">{t("settings.local_music.fingerprint_cache_size")}: {cacheSize}</span>
                     </div>
                 )}
-                <div className="groups">
-                    {!mainProg && groups.length === 0 ? (
-                        <Empty
-                            style={{
-                                minHeight: "200px",
-                            }}
-                        ></Empty>
-                    ) : (
-                        groups.map((g, gi) => (
-                            <div key={gi} className="group">
-                                <div className="group-header">组{gi + 1} · {g.items.length}首</div>
-                                {g.items.map((it) => (
-                                    <div key={it.key} role="button" className={`row${checked.has(it.key) ? " selected" : ""}`} onClick={() => {
-                                        const next = new Set(checked);
-                                        if (next.has(it.key)) next.delete(it.key);
-                                        else next.add(it.key);
-                                        setCheckedKeys(next);
-                                    }}>
-                                        <Checkbox checked={checked.has(it.key)}></Checkbox>
-                                        <span className="titles">
-                                            <span className="title-row">
-                                                <span className="title">{it.title} - {it.artist}</span>
-                                                <span className="meta">{it.duration !== undefined ? secondsToDuration(Math.round(it.duration)) : ""}</span>
-                                            </span>
-                                            <span className="file-row">
-                                                <span className="file-name">{it.localPath.split(/[/\\]/).pop() ?? it.localPath}</span>
-                                                <span className="meta">{it.size !== undefined ? formatFileSize(it.size) : ""}</span>
-                                            </span>
-                                        </span>
-                                        <span
-                                            className="action"
-                                            role="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                const full = localMusicListStore.getValue().find((x) => `${x.platform}+${x.id}` === it.key);
-                                                if (full) trackPlayer.playMusicWithReplaceQueue([full], full);
-                                            }}
-                                        >试听</span>
-                                        <span className="action" role="button" onClick={(e) => {
-                                            e.stopPropagation();
-                                            shellUtil.showItemInFolder(it.localPath);
-                                        }}>在文件中打开</span>
+                <div className="results">
+                    <div className="groups">
+                        <div className="groups-header">重复组 · 建议清理（{normalGroups.length}组）</div>
+                        {normalGroups.length === 0 ? (
+                            <Empty
+                                style={{
+                                    minHeight: "160px",
+                                }}
+                            ></Empty>
+                        ) : (
+                            normalGroups.map((g, gi) => (
+                                <div key={gi} className="group">
+                                    <div className="group-header">
+                                        <span>组{gi + 1} · {g.items.length}首</span>
+                                        {mode === "audio" && (
+                                            <span
+                                                className="action"
+                                                role="button"
+                                                onClick={() => {
+                                                    const sig = buildVersionSignature(g.ids);
+                                                    if (!manualSet.has(sig)) saveManualMarks([...manualMarks, sig]);
+                                                }}
+                                            >标为版本</span>
+                                        )}
                                     </div>
-                                ))}
-                            </div>
-                        ))
+                                    {g.items.map((it) => (
+                                        <div key={it.key} role="button" className={`row${checked.has(it.key) ? " selected" : ""}`} onClick={() => {
+                                            const next = new Set(checked);
+                                            if (next.has(it.key)) next.delete(it.key);
+                                            else next.add(it.key);
+                                            setCheckedKeys(next);
+                                        }}>
+                                            <Checkbox checked={checked.has(it.key)}></Checkbox>
+                                            <span className="titles">
+                                                <span className="title-row">
+                                                    <span className="title">{it.title} - {it.artist}</span>
+                                                    <span className="meta">{it.duration !== undefined ? secondsToDuration(Math.round(it.duration)) : ""}</span>
+                                                </span>
+                                                <span className="file-row">
+                                                    <span className="file-name">{it.localPath.split(/[/\\]/).pop() ?? it.localPath}</span>
+                                                    <span className="meta">{it.size !== undefined ? formatFileSize(it.size) : ""}</span>
+                                                </span>
+                                            </span>
+                                            <span
+                                                className="action"
+                                                role="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const full = localMusicListStore.getValue().find((x) => `${x.platform}+${x.id}` === it.key);
+                                                    if (full) trackPlayer.playMusicWithReplaceQueue([full], full);
+                                                }}
+                                            >试听</span>
+                                            <span className="action" role="button" onClick={(e) => {
+                                                e.stopPropagation();
+                                                shellUtil.showItemInFolder(it.localPath);
+                                            }}>在文件中打开</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    {(versionGroups.length > 0 || manualVersionGroups.length > 0) && (
+                        <div className="version-section">
+                            <Disclosure defaultOpen={false}>
+                                {({ open }) => (
+                                    <>
+                                        <Disclosure.Button className="version-header" as="div" role="button">
+                                            <span>版本组 · 建议保留（{versionGroups.length + manualVersionGroups.length}组）</span>
+                                            <span>{open ? "折叠" : "展开"}</span>
+                                        </Disclosure.Button>
+                                        <Disclosure.Panel>
+                                            {versionGroups.map((g, gi) => {
+                                                const reason = g.items.length === 2 ? detectVersionReason(g.items[0], g.items[1]) : null;
+                                                return (
+                                                    <div key={`v${gi}`} className="group version-group">
+                                                        <div className="group-header">版本组 · {reason ?? "疑似版本"}</div>
+                                                        {g.items.map((it) => (
+                                                            <div key={it.key} role="button" className={`row${checked.has(it.key) ? " selected" : ""}`} onClick={() => {
+                                                                const next = new Set(checked);
+                                                                if (next.has(it.key)) next.delete(it.key);
+                                                                else next.add(it.key);
+                                                                setCheckedKeys(next);
+                                                            }}>
+                                                                <Checkbox checked={checked.has(it.key)}></Checkbox>
+                                                                <span className="titles">
+                                                                    <span className="title-row">
+                                                                        <span className="title">{it.title} - {it.artist}</span>
+                                                                        <span className="meta">{it.duration !== undefined ? secondsToDuration(Math.round(it.duration)) : ""}</span>
+                                                                    </span>
+                                                                    <span className="file-row">
+                                                                        <span className="file-name">{it.localPath.split(/[/\\]/).pop() ?? it.localPath}</span>
+                                                                        <span className="meta">{it.size !== undefined ? formatFileSize(it.size) : ""}</span>
+                                                                    </span>
+                                                                </span>
+                                                                <span
+                                                                    className="action"
+                                                                    role="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const full = localMusicListStore.getValue().find((x) => `${x.platform}+${x.id}` === it.key);
+                                                                        if (full) trackPlayer.playMusicWithReplaceQueue([full], full);
+                                                                    }}
+                                                                >试听</span>
+                                                                <span className="action" role="button" onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    shellUtil.showItemInFolder(it.localPath);
+                                                                }}>在文件中打开</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })}
+                                            {manualVersionGroups.map((g, gi) => (
+                                                <div key={`m${gi}`} className="group version-group">
+                                                    <div className="group-header">
+                                                        <span>版本组 · 手动标记</span>
+                                                        <span
+                                                            className="action"
+                                                            role="button"
+                                                            onClick={() => {
+                                                                saveManualMarks(manualMarks.filter((s) => s !== buildVersionSignature(g.ids)));
+                                                            }}
+                                                        >移回</span>
+                                                    </div>
+                                                    {g.items.map((it) => (
+                                                        <div key={it.key} role="button" className={`row${checked.has(it.key) ? " selected" : ""}`} onClick={() => {
+                                                            const next = new Set(checked);
+                                                            if (next.has(it.key)) next.delete(it.key);
+                                                            else next.add(it.key);
+                                                            setCheckedKeys(next);
+                                                        }}>
+                                                            <Checkbox checked={checked.has(it.key)}></Checkbox>
+                                                            <span className="titles">
+                                                                <span className="title-row">
+                                                                    <span className="title">{it.title} - {it.artist}</span>
+                                                                    <span className="meta">{it.duration !== undefined ? secondsToDuration(Math.round(it.duration)) : ""}</span>
+                                                                </span>
+                                                                <span className="file-row">
+                                                                    <span className="file-name">{it.localPath.split(/[/\\]/).pop() ?? it.localPath}</span>
+                                                                    <span className="meta">{it.size !== undefined ? formatFileSize(it.size) : ""}</span>
+                                                                </span>
+                                                            </span>
+                                                            <span
+                                                                className="action"
+                                                                role="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const full = localMusicListStore.getValue().find((x) => `${x.platform}+${x.id}` === it.key);
+                                                                    if (full) trackPlayer.playMusicWithReplaceQueue([full], full);
+                                                                }}
+                                                            >试听</span>
+                                                            <span className="action" role="button" onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                shellUtil.showItemInFolder(it.localPath);
+                                                            }}>在文件中打开</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ))}
+                                        </Disclosure.Panel>
+                                    </>
+                                )}
+                            </Disclosure>
+                        </div>
                     )}
                 </div>
                 <div className="footer-options">
