@@ -1,1 +1,6 @@
-pnpm lint-staged
+# 兼容 pnpm / npm 两种环境：优先使用 pnpm，未安装时回退到 npm 自带的 npx
+if command -v pnpm >/dev/null 2>&1; then
+    pnpm exec lint-staged
+else
+    npx --no-install lint-staged
+fi
